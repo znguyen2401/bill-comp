@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Base Power — Bill Comparison</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
@@ -27,41 +26,12 @@
     .input-group select, .input-group input { padding: 11px 13px; border: 1.5px solid #e4e4e7; border-radius: 9px; font-size: 0.95rem; color: #1a1a2e; background: #fafafa; transition: border-color 0.18s, box-shadow 0.18s; width: 100%; }
     .input-group select:focus, .input-group input:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); background: white; }
 
-    /* Bill photo upload */
-    .bill-upload-zone {
-      flex: 1; min-width: 160px;
-      display: flex; flex-direction: column; gap: 5px;
-    }
-    .bill-upload-zone label.zone-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
-    .bill-upload-trigger {
-      position: relative; cursor: pointer;
-      border: 1.5px dashed #d1d5db; border-radius: 9px;
-      padding: 9px 13px; background: #fafafa;
-      display: flex; align-items: center; gap: 8px;
-      font-size: 0.82rem; color: #999; transition: all 0.18s;
-    }
-    .bill-upload-trigger:hover { border-color: #22c55e; background: #f0fdf4; color: #16a34a; }
-    .bill-upload-trigger input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-    .bill-upload-trigger.has-image { border-color: #22c55e; background: #f0fdf4; color: #16a34a; }
 
-    /* Bill image preview */
-    .bill-image-wrap {
-      display: none; margin-top: 14px;
-      background: white; border-radius: 12px;
-      border: 1.5px solid #e4e4e7;
-      padding: 12px; position: relative;
-    }
-    .bill-image-wrap.visible { display: block; }
-    .bill-image-wrap img { width: 100%; max-height: 340px; object-fit: contain; border-radius: 6px; }
-    .bill-image-label { font-size: 0.72rem; color: #aaa; margin-bottom: 8px; }
-    .ocr-status { font-size: 0.72rem; margin-bottom: 8px; padding: 5px 10px; border-radius: 6px; display: none; }
-    .ocr-status.reading { display: block; background: #fefce8; color: #a16207; }
-    .ocr-status.success { display: block; background: #f0fdf4; color: #16a34a; }
-    .ocr-status.warn    { display: block; background: #fff7ed; color: #c2410c; }
-    .btn-clear-img { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.4); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-    .btn-print { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; padding: 11px 22px; border-radius: 9px; font-size: 0.88rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 4px 12px rgba(34,197,94,0.35); flex-shrink: 0; align-self: flex-end; }
-    .btn-print:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(34,197,94,0.45); }
+    .btn-compare { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; padding: 11px 26px; border-radius: 9px; font-size: 0.95rem; font-weight: 800; cursor: pointer; white-space: nowrap; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 4px 14px rgba(34,197,94,0.4); flex-shrink: 0; align-self: flex-end; }
+    .btn-compare:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.5); }
+    .btn-compare:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-print { background: white; color: #555; border: 1.5px solid #e4e4e7; padding: 10px 18px; border-radius: 9px; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; align-self: flex-end; }
+    .btn-print:hover { border-color: #aaa; }
 
     /* ── EFL Card ── */
     .efl-card { background: white; border-radius: 14px; padding: 16px 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 24px; border: 1.5px dashed #e4e4e7; }
@@ -231,7 +201,7 @@
   <!-- ── Inputs ── -->
   <div class="input-card">
     <h2>Compare Your Electric Bill</h2>
-    <p>Enter the numbers from the customer's bill, or upload a photo of it for reference.</p>
+    <p>Enter the utility, kWh used, and total bill amount, then click Compare.</p>
     <div class="inputs-row">
       <div class="input-group">
         <label>Utility</label>
@@ -242,27 +212,14 @@
       </div>
       <div class="input-group">
         <label>kWh Used</label>
-        <input type="number" id="kwh" placeholder="e.g. 429" value="429" min="0" oninput="generate()" />
+        <input type="number" id="kwh" placeholder="e.g. 429" min="0" oninput="generate()" />
       </div>
       <div class="input-group">
         <label>Their Total Bill ($)</label>
-        <input type="number" id="total-bill" placeholder="e.g. 85.39" value="85.39" step="0.01" min="0" oninput="generate()" />
+        <input type="number" id="total-bill" placeholder="e.g. 85.39" step="0.01" min="0" oninput="generate()" />
       </div>
-      <div class="bill-upload-zone">
-        <label class="zone-label">Bill Photo (optional)</label>
-        <label class="bill-upload-trigger" id="bill-photo-trigger">
-          <input type="file" accept="image/*,.pdf" onclick="this.value=''" onchange="handleBillPhoto(event)" />
-          📷 Upload bill photo
-        </label>
-      </div>
-      <button class="btn-print" onclick="window.print()">🖨 Print / PDF</button>
-    </div>
-    <!-- Bill image preview -->
-    <div class="bill-image-wrap" id="bill-image-wrap">
-      <div class="bill-image-label" id="bill-image-label">Customer's bill</div>
-      <div class="ocr-status" id="ocr-status"></div>
-      <button class="btn-clear-img" onclick="clearBillPhoto()">✕</button>
-      <img id="bill-preview" src="" alt="Bill" />
+      <button class="btn-compare" onclick="generate()">⚡ Compare</button>
+      <button class="btn-print" onclick="window.print()">🖨 Print</button>
     </div>
   </div>
 
@@ -492,101 +449,6 @@
     document.getElementById('comparison').classList.add('visible');
   }
 
-  // ── OCR helpers ──
-  function parseOCRText(text) {
-    let kwh = null, total = null;
-
-    // kWh: match numbers right before or after "kwh"
-    const kwhPatterns = [
-      /(\d[\d,]*)\s*kwh/i,
-      /kwh[^a-z\d]*(\d[\d,]+)/i,
-      /(?:usage|used|consumption)[:\s]+(\d[\d,]+)/i,
-    ];
-    for (const re of kwhPatterns) {
-      const m = text.match(re);
-      if (m) { kwh = parseFloat(m[1].replace(/,/g, '')); break; }
-    }
-
-    // Total: look for "amount due", "total due", "pay this amount", etc.
-    const totalPatterns = [
-      /(?:total\s*amount\s*due|amount\s*due|total\s*due|pay\s*this\s*amount|please\s*pay)[^\d$]*\$?\s*(\d{1,5}[.,]\d{2})/i,
-      /(?:current\s*charges|new\s*charges|total\s*charges|total\s*bill)[^\d$]*\$?\s*(\d{1,5}[.,]\d{2})/i,
-      /(?:^|\n)\s*total\s*\$?\s*(\d{1,5}[.,]\d{2})/im,
-    ];
-    for (const re of totalPatterns) {
-      const m = text.match(re);
-      if (m) { total = parseFloat(m[1].replace(/,/g, '')); break; }
-    }
-
-    return { kwh, total };
-  }
-
-  function setOCRStatus(type, msg) {
-    const el = document.getElementById('ocr-status');
-    el.className = 'ocr-status ' + type;
-    el.textContent = msg;
-  }
-
-  // ── Bill photo upload ──
-  async function handleBillPhoto(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    document.getElementById('bill-image-wrap').classList.add('visible');
-    document.getElementById('bill-photo-trigger').classList.add('has-image');
-
-    if (file.type === 'application/pdf') {
-      document.getElementById('bill-preview').style.display = 'none';
-      document.getElementById('bill-image-label').textContent = '📄 PDF bill uploaded';
-      setOCRStatus('warn', 'PDF preview not supported — please enter kWh and total manually.');
-      generate();
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async e => {
-      const img = document.getElementById('bill-preview');
-      img.src = e.target.result;
-      img.style.display = 'block';
-      document.getElementById('bill-image-label').textContent = 'Customer\'s bill';
-      generate();
-
-      // Run OCR
-      setOCRStatus('reading', '🔍 Reading bill...');
-      try {
-        const result = await Tesseract.recognize(e.target.result, 'eng');
-        const text = result.data.text;
-        const { kwh, total } = parseOCRText(text);
-
-        let filled = [];
-        if (kwh && kwh > 0 && kwh < 99999) {
-          document.getElementById('kwh').value = kwh;
-          filled.push(`${kwh.toLocaleString()} kWh`);
-        }
-        if (total && total > 0 && total < 99999) {
-          document.getElementById('total-bill').value = total.toFixed(2);
-          filled.push(`$${total.toFixed(2)}`);
-        }
-
-        if (filled.length > 0) {
-          setOCRStatus('success', '✓ Found: ' + filled.join(' · ') + ' — review and adjust if needed');
-          generate();
-        } else {
-          setOCRStatus('warn', 'Couldn\'t read the numbers — please enter kWh and total manually.');
-        }
-      } catch(err) {
-        setOCRStatus('warn', 'OCR failed — please enter kWh and total manually.');
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function clearBillPhoto() {
-    document.getElementById('bill-image-wrap').classList.remove('visible');
-    document.getElementById('bill-preview').src = '';
-    document.getElementById('bill-photo-trigger').classList.remove('has-image');
-    document.getElementById('ocr-status').className = 'ocr-status';
-  }
 
   // ── EFL PDF Upload ──
   async function handleEFLUpload(event, expectedUtility) {
