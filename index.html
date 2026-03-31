@@ -226,7 +226,7 @@
   <!-- ── Inputs ── -->
   <div class="input-card">
     <h2>Compare Your Electric Bill</h2>
-    <p>Enter three numbers from the customer's bill, or upload a photo of it for reference.</p>
+    <p>Enter the numbers from the customer's bill, or upload a photo of it for reference.</p>
     <div class="inputs-row">
       <div class="input-group">
         <label>Utility</label>
@@ -242,6 +242,14 @@
       <div class="input-group">
         <label>Their Total Bill ($)</label>
         <input type="number" id="total-bill" placeholder="e.g. 85.39" value="85.39" step="0.01" min="0" oninput="generate()" />
+      </div>
+      <div class="input-group">
+        <label>Their Energy Rate (¢/kWh)</label>
+        <input type="number" id="curr-rate" placeholder="e.g. 11.09" value="11.0935" step="0.0001" min="0" oninput="generate()" />
+      </div>
+      <div class="input-group">
+        <label>Their Base Charge ($)</label>
+        <input type="number" id="curr-base" placeholder="e.g. 6.95" value="6.95" step="0.01" min="0" oninput="generate()" />
       </div>
       <div class="bill-upload-zone">
         <label class="zone-label">Bill Photo (optional)</label>
@@ -419,8 +427,11 @@
     const currTotal = parseFloat(document.getElementById('total-bill').value) || 0;
     if (kwh <= 0 || currTotal <= 0) return;
 
-    const tdu = TDU[tduKey];
+    const tdu         = TDU[tduKey];
     const currAvgRate = currTotal / kwh;
+    const currRateCents = parseFloat(document.getElementById('curr-rate').value) || 0;
+    const currBase      = parseFloat(document.getElementById('curr-base').value) || 0;
+    const currRateDollar = currRateCents / 100;
 
     // Base Power calculations
     const bpEnergy    = kwh * BP_RATE;
@@ -450,14 +461,34 @@
     document.getElementById('s-yearly').textContent      = fmt(yearlySav);
 
     // ── Current bill rows ──
-    const currTDU    = tdu.fixed + kwh * tdu.variable;
-    const currEnergy = currTotal - currTDU;
-    document.getElementById('curr-rows').innerHTML =
-      brow('Energy + Base Charges', 'From your current provider', fmt(Math.max(0, currEnergy))) +
-      brow(tdu.name, null, fmt(currTDU), 'muted', [
-        { label: `Fixed charge`, amt: fmt(tdu.fixed) + '/mo' },
-        { label: `Variable  ${(tdu.variable*100).toFixed(4)}¢ × ${kwh} kWh`, amt: fmt(bpTDUVar) }
-      ]);
+    const currTDUFixed = tdu.fixed;
+    const currTDUVar   = kwh * tdu.variable;
+    const currTDU      = currTDUFixed + currTDUVar;
+
+    let currHTML = '';
+    if (currRateDollar > 0 || currBase > 0) {
+      // Detailed breakdown using entered rate & base charge
+      const currEnergyCharge = kwh * currRateDollar;
+      const remainder        = Math.max(0, currTotal - currBase - currEnergyCharge - currTDU);
+      currHTML =
+        brow('Base / Service Charge', 'Monthly fixed fee', fmt(currBase)) +
+        brow('Energy Charge', `${kwh.toLocaleString()} kWh @ ${currRateCents.toFixed(4)}¢/kWh`, fmt(currEnergyCharge)) +
+        brow(tdu.name, 'Regulated pass-through', fmt(currTDU), 'muted', [
+          { label: 'Fixed charge', amt: fmt(currTDUFixed) + '/mo' },
+          { label: `Variable  ${(tdu.variable*100).toFixed(4)}¢ × ${kwh} kWh`, amt: fmt(currTDUVar) }
+        ]) +
+        (remainder > 0.01 ? brow('Taxes & Other Fees', 'Gross receipts, sales tax, etc.', fmt(remainder)) : '');
+    } else {
+      // Fallback: lump sum
+      const currEnergy = currTotal - currTDU;
+      currHTML =
+        brow('Energy + Base Charges', 'From your current provider', fmt(Math.max(0, currEnergy))) +
+        brow(tdu.name, 'Regulated pass-through', fmt(currTDU), 'muted', [
+          { label: 'Fixed charge', amt: fmt(currTDUFixed) + '/mo' },
+          { label: `Variable  ${(tdu.variable*100).toFixed(4)}¢ × ${kwh} kWh`, amt: fmt(currTDUVar) }
+        ]);
+    }
+    document.getElementById('curr-rows').innerHTML = currHTML;
 
     // ── Base Power rows ──
     let bpHTML =
@@ -490,27 +521,25 @@
     const file = event.target.files[0];
     if (!file) return;
     if (file.type === 'application/pdf') {
-      // For PDFs, just show a placeholder message
       document.getElementById('bill-image-wrap').classList.add('visible');
       document.getElementById('bill-preview').src = '';
-      document.getElementById('bill-preview').alt = 'PDF uploaded — enter values from the bill above';
       document.getElementById('bill-preview').style.display = 'none';
       document.querySelector('.bill-image-label').textContent = '📄 PDF bill uploaded — enter the values from the bill in the fields above';
       document.getElementById('bill-photo-trigger').classList.add('has-image');
+      generate();
       return;
     }
     const reader = new FileReader();
     reader.onload = e => {
-      const wrap = document.getElementById('bill-image-wrap');
-      const img  = document.getElementById('bill-preview');
+      const img = document.getElementById('bill-preview');
       img.src = e.target.result;
       img.style.display = 'block';
       document.querySelector('.bill-image-label').textContent = 'Customer\'s bill — use this to fill in the fields above';
-      wrap.classList.add('visible');
+      document.getElementById('bill-image-wrap').classList.add('visible');
       document.getElementById('bill-photo-trigger').classList.add('has-image');
+      generate();
     };
     reader.readAsDataURL(file);
-    event.target.value = '';
   }
 
   function clearBillPhoto() {
