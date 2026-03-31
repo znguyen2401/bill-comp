@@ -254,7 +254,7 @@
       <div class="bill-upload-zone">
         <label class="zone-label">Bill Photo (optional)</label>
         <label class="bill-upload-trigger" id="bill-photo-trigger">
-          <input type="file" accept="image/*,.pdf" onchange="handleBillPhoto(event)" />
+          <input type="file" accept="image/*,.pdf" onclick="this.value=''" onchange="handleBillPhoto(event)" />
           📷 Upload bill photo
         </label>
       </div>
