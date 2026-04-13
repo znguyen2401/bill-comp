@@ -27,12 +27,6 @@
     .input-group select:focus, .input-group input:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); background: white; }
 
 
-    /* Offer toggle */
-    .offer-toggle { display: flex; gap: 0; background: #f0f2f5; border-radius: 10px; padding: 3px; margin-bottom: 20px; width: fit-content; }
-    .offer-btn { padding: 8px 20px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer; background: transparent; color: #888; transition: all 0.18s; white-space: nowrap; }
-    .offer-btn.active { background: white; color: #0f1923; box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
-    .offer-btn.active.lennar { color: #16a34a; }
-    .offer-btn.active.energy { color: #2563eb; }
 
     .btn-compare { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; padding: 11px 26px; border-radius: 9px; font-size: 0.95rem; font-weight: 800; cursor: pointer; white-space: nowrap; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 4px 14px rgba(34,197,94,0.4); flex-shrink: 0; align-self: flex-end; }
     .btn-compare:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.5); }
@@ -207,10 +201,6 @@
   <!-- ── Inputs ── -->
   <div class="input-card">
     <h2>Compare Your Electric Bill</h2>
-    <div class="offer-toggle">
-      <button class="offer-btn lennar active" onclick="setOffer('lennar', this)">🏠 Lennar Offer — 8¢/kWh</button>
-      <button class="offer-btn energy" onclick="setOffer('energy', this)">⚡ Energy Only — 8.5¢/kWh</button>
-    </div>
     <div class="inputs-row">
       <div class="input-group">
         <label>Utility</label>
@@ -286,7 +276,7 @@
 
         <!-- Col 2: Base Power -->
         <div class="snap3-col basepwr">
-          <div class="snap3-badge" id="s-offer-badge">With Base Power</div>
+          <div class="snap3-badge">With Base Power</div>
           <div class="snap3-amount" id="s-bp-total">$0</div>
           <div class="snap3-sub">per month</div>
           <div class="snap3-rate" id="s-bp-rate">—¢/kWh avg</div>
@@ -365,19 +355,7 @@
     oncor:       { variable: 0.056183, fixed: 4.23, name: 'Oncor Electric Delivery',       date: '03/14/2026' },
     centerpoint: { variable: 0.049993, fixed: 4.90, name: 'CenterPoint Energy Delivery',   date: '03/14/2026' }
   };
-  const OFFERS = {
-    lennar: { rate: 0.08,  label: 'Lennar Offer',  tag: '8¢/kWh' },
-    energy: { rate: 0.085, label: 'Energy Only',   tag: '8.5¢/kWh' },
-  };
-  let activeOffer = 'lennar';
-
-  function setOffer(key, btn) {
-    activeOffer = key;
-    document.querySelectorAll('.offer-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    generate();
-  }
-
+  const BP_RATE        = 0.08;
   const GROSS_REC_RATE = 0.01833;
   const SALES_TAX_RATE = 0.01;
 
@@ -405,10 +383,9 @@
 
     const tdu         = TDU[tduKey];
     const currAvgRate = currTotal / kwh;
-    const offer       = OFFERS[activeOffer];
 
     // Base Power calculations
-    const bpEnergy    = kwh * offer.rate;
+    const bpEnergy    = kwh * BP_RATE;
     const bpTDUFixed  = tdu.fixed;
     const bpTDUVar    = kwh * tdu.variable;
     const bpTDU       = bpTDUFixed + bpTDUVar;
@@ -423,7 +400,6 @@
     const yearlySav   = savings * 12;
 
     // ── Snapshot ──
-    document.getElementById('s-offer-badge').textContent = offer.label + ' — ' + offer.tag;
     document.getElementById('s-curr-total').textContent  = fmt(currTotal);
     document.getElementById('s-bp-total').textContent    = fmt(bpTotal);
     document.getElementById('s-savings').textContent     = fmt(savings);
@@ -451,7 +427,7 @@
 
     // ── Base Power rows ──
     let bpHTML =
-      brow('Energy Charge', `${kwh.toLocaleString()} kWh @ ${offer.tag}`, fmt(bpEnergy), 'green') +
+      brow('Energy Charge', `${kwh.toLocaleString()} kWh @ 8¢/kWh`, fmt(bpEnergy), 'green') +
       brow(tdu.name, `EFL dated ${tdu.date} — passed through at cost`, fmt(bpTDU), 'muted', [
         { label: `Fixed charge`, amt: fmt(tdu.fixed) + '/mo' },
         { label: `Variable  ${(tdu.variable*100).toFixed(4)}¢ × ${kwh} kWh`, amt: fmt(bpTDUVar) }
@@ -464,11 +440,11 @@
 
     // ── Totals & labels ──
     document.getElementById('out-curr-name').textContent  = tduKey === 'oncor' ? 'Oncor Territory Customer' : 'CenterPoint Territory Customer';
-    document.getElementById('out-bp-name').textContent    = 'Base Power — ' + offer.label;
+    document.getElementById('out-bp-name').textContent    = 'Base Power';
     document.getElementById('out-curr-total').textContent = fmt(currTotal);
     document.getElementById('out-bp-total').textContent   = fmt(bpTotal);
     document.getElementById('out-curr-rate').textContent  = `${(currAvgRate*100).toFixed(2)}¢/kWh avg`;
-    document.getElementById('out-bp-rate').textContent    = `${offer.tag} · ${(bpAvgRate*100).toFixed(2)}¢/kWh avg`;
+    document.getElementById('out-bp-rate').textContent    = `8¢/kWh · ${(bpAvgRate*100).toFixed(2)}¢/kWh avg`;
 
     document.getElementById('comparison').classList.add('visible');
   }
