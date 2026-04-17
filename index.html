@@ -207,6 +207,9 @@
         <select id="tdu" onchange="generate()">
           <option value="oncor">Oncor</option>
           <option value="centerpoint">CenterPoint Energy</option>
+          <option value="tnmp">TNMP</option>
+          <option value="aep_central">AEP Central</option>
+          <option value="aep_north">AEP North</option>
         </select>
       </div>
       <div class="input-group">
@@ -240,15 +243,48 @@
           <div class="rc-date" id="cp-efl-date">dated 03/14/2026</div>
         </div>
       </div>
+      <div class="efl-chip oncor">
+        <div>
+          <div class="rc-label">TNMP</div>
+          <div class="rc-val" id="tnmp-rate-display">7.2739¢/kWh + $7.85/mo</div>
+          <div class="rc-date" id="tnmp-efl-date">dated 04/06/2026</div>
+        </div>
+      </div>
+      <div class="efl-chip cp">
+        <div>
+          <div class="rc-label">AEP Central</div>
+          <div class="rc-val" id="aep-central-rate-display">5.8007¢/kWh + $3.24/mo</div>
+          <div class="rc-date" id="aep-central-efl-date">dated 04/06/2026</div>
+        </div>
+      </div>
+      <div class="efl-chip oncor">
+        <div>
+          <div class="rc-label">AEP North</div>
+          <div class="rc-val" id="aep-north-rate-display">5.6677¢/kWh + $3.24/mo</div>
+          <div class="rc-date" id="aep-north-efl-date">dated 04/06/2026</div>
+        </div>
+      </div>
       <div class="efl-divider"></div>
       <div class="efl-upload-row">
         <label class="efl-upload-btn" id="oncor-upload-btn">
           <input type="file" accept=".pdf" onchange="handleEFLUpload(event,'oncor')" />
-          📄 Update Oncor EFL
+          📄 Oncor EFL
         </label>
         <label class="efl-upload-btn" id="cp-upload-btn">
           <input type="file" accept=".pdf" onchange="handleEFLUpload(event,'centerpoint')" />
-          📄 Update CenterPoint EFL
+          📄 CenterPoint EFL
+        </label>
+        <label class="efl-upload-btn" id="tnmp-upload-btn">
+          <input type="file" accept=".pdf" onchange="handleEFLUpload(event,'tnmp')" />
+          📄 TNMP EFL
+        </label>
+        <label class="efl-upload-btn" id="aep-central-upload-btn">
+          <input type="file" accept=".pdf" onchange="handleEFLUpload(event,'aep_central')" />
+          📄 AEP Central EFL
+        </label>
+        <label class="efl-upload-btn" id="aep-north-upload-btn">
+          <input type="file" accept=".pdf" onchange="handleEFLUpload(event,'aep_north')" />
+          📄 AEP North EFL
         </label>
       </div>
     </div>
@@ -353,7 +389,10 @@
 
   const TDU = {
     oncor:       { variable: 0.056183, fixed: 4.23, name: 'Oncor Electric Delivery',       date: '03/14/2026' },
-    centerpoint: { variable: 0.049993, fixed: 4.90, name: 'CenterPoint Energy Delivery',   date: '03/14/2026' }
+    centerpoint: { variable: 0.049993, fixed: 4.90, name: 'CenterPoint Energy Delivery',   date: '03/14/2026' },
+    tnmp:        { variable: 0.072739, fixed: 7.85, name: 'TNMP Delivery',                 date: '04/06/2026' },
+    aep_central: { variable: 0.058007, fixed: 3.24, name: 'AEP Central Delivery',          date: '04/06/2026' },
+    aep_north:   { variable: 0.056677, fixed: 3.24, name: 'AEP North Delivery',            date: '04/06/2026' },
   };
   const BP_RATE        = 0.08;
   const GROSS_REC_RATE = 0.01833;
@@ -439,7 +478,8 @@
     document.getElementById('bp-rows').innerHTML = bpHTML;
 
     // ── Totals & labels ──
-    document.getElementById('out-curr-name').textContent  = tduKey === 'oncor' ? 'Oncor Territory Customer' : 'CenterPoint Territory Customer';
+    const tduNames = { oncor: 'Oncor Territory', centerpoint: 'CenterPoint Territory', tnmp: 'TNMP Territory', aep_central: 'AEP Central Territory', aep_north: 'AEP North Territory' };
+    document.getElementById('out-curr-name').textContent  = (tduNames[tduKey] || tduKey) + ' Customer';
     document.getElementById('out-bp-name').textContent    = 'Base Power';
     document.getElementById('out-curr-total').textContent = fmt(currTotal);
     document.getElementById('out-bp-total').textContent   = fmt(bpTotal);
@@ -451,11 +491,20 @@
 
 
   // ── EFL PDF Upload ──
+  const EFL_META = {
+    oncor:       { display: 'oncor',       label: 'Oncor' },
+    centerpoint: { display: 'cp',          label: 'CenterPoint' },
+    tnmp:        { display: 'tnmp',        label: 'TNMP' },
+    aep_central: { display: 'aep-central', label: 'AEP Central' },
+    aep_north:   { display: 'aep-north',   label: 'AEP North' },
+  };
+
   async function handleEFLUpload(event, expectedUtility) {
     const file = event.target.files[0];
     if (!file) return;
-    const btnId = expectedUtility === 'oncor' ? 'oncor-upload-btn' : 'cp-upload-btn';
-    const btn = document.getElementById(btnId);
+    const meta = EFL_META[expectedUtility];
+    const btn  = document.getElementById(`${expectedUtility.replace('_','-')}-upload-btn`) ||
+                 document.getElementById(`${meta.display}-upload-btn`);
     btn.innerHTML = '⏳ Reading…';
     try {
       const buf = await file.arrayBuffer();
@@ -466,33 +515,30 @@
         const content = await page.getTextContent();
         text += content.items.map(x => x.str).join(' ');
       }
-      const utility = /oncor/i.test(text) ? 'oncor' : /centerpoint/i.test(text) ? 'centerpoint' : null;
-      if (!utility) throw new Error('Utility not found in PDF.');
       const m = text.match(/([0-9]+\.?[0-9]*)\s*[¢c]\s*per\s*kwh\s*and\s*\$\s*([0-9]+\.?[0-9]*)\s*per\s*month/i);
       if (!m) throw new Error('Delivery charge not found.');
       const variable = parseFloat(m[1]) / 100;
       const fixed    = parseFloat(m[2]);
       const dm = text.match(/Date\s+(\d{2}\/\d{2}\/\d{4})/i);
       const eflDate = dm ? dm[1] : 'unknown';
-      TDU[utility].variable = variable;
-      TDU[utility].fixed    = fixed;
-      TDU[utility].date     = eflDate;
-      const prefix = utility === 'oncor' ? 'oncor' : 'cp';
-      document.getElementById(`${prefix}-rate-display`).textContent = `${(variable*100).toFixed(4)}¢/kWh + $${fixed.toFixed(2)}/mo`;
-      document.getElementById(`${prefix}-efl-date`).textContent = `dated ${eflDate}`;
+      TDU[expectedUtility].variable = variable;
+      TDU[expectedUtility].fixed    = fixed;
+      TDU[expectedUtility].date     = eflDate;
+      document.getElementById(`${meta.display}-rate-display`).textContent = `${(variable*100).toFixed(4)}¢/kWh + $${fixed.toFixed(2)}/mo`;
+      document.getElementById(`${meta.display}-efl-date`).textContent = `dated ${eflDate}`;
       btn.className = 'efl-upload-btn success';
-      btn.innerHTML = `✅ ${utility === 'oncor' ? 'Oncor' : 'CenterPoint'} updated`;
+      btn.innerHTML = `✅ ${meta.label} updated`;
       generate();
       setTimeout(() => {
         btn.className = 'efl-upload-btn';
-        btn.innerHTML = `📄 Update ${utility === 'oncor' ? 'Oncor' : 'CenterPoint'} EFL`;
+        btn.innerHTML = `📄 ${meta.label} EFL`;
       }, 4000);
     } catch(err) {
       btn.className = 'efl-upload-btn error';
       btn.innerHTML = `⚠️ ${err.message}`;
       setTimeout(() => {
         btn.className = 'efl-upload-btn';
-        btn.innerHTML = `📄 Update ${expectedUtility === 'oncor' ? 'Oncor' : 'CenterPoint'} EFL`;
+        btn.innerHTML = `📄 ${meta.label} EFL`;
       }, 4000);
     }
     event.target.value = '';
